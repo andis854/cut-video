@@ -6,8 +6,15 @@ echo 'Usage: cut-video FILENAME
 
 Simple program that cuts a video file into a smaller segment. 
 
+Exit statuses:
+- 0 if cut is successful
+- 1 if invalid filename is given
+- 2 if aborted
+
+
+
 This has been tested using vlc, but other video players should also work, perhaps with a modification of the code.
-Please report any bugs at [issues].
+Please report any bugs at https://github.com/andis854/cut-video/issues.
 If you want to contribute, please make a pull request to the dev branch on github.
 
 Dependencies:
@@ -34,7 +41,7 @@ fi
 
 
 VIDEO_PLAYER=$( < $HOME/.config/cut-video/config.conf )
-[[ $VIDEO_PLAYER =~ vlc$ ]] && QUIT_PAR=vlc://quit
+[[ $VIDEO_PLAYER =~ vlc$ ]] && QUIT_PAR=vlc://quit # This is a vlc option only to quit the video automatically
 VIDEO_FORMAT=$(echo $1 | grep -oE '\.[^.]+$')
 DURATION=$(ffprobe -i "$1" -show_format 2>/dev/null | awk -F "=" '/duration/ { print $2 }')
 TEMP_FILE="/tmp/cut-video-temp-file$VIDEO_FORMAT"
