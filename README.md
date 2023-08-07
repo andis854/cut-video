@@ -1,5 +1,4 @@
 # cut-video
-## Description
 Simple program that cuts a video file into a smaller segment.
 ## Usage
 Run 
