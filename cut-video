@@ -6,6 +6,8 @@ echo 'Usage: cut-video FILENAME
 
 Simple program that cuts a video file into a smaller segment. 
 
+Running the first time creates a configuration file in $HOME/.config/ directory.
+
 Exit statuses:
 - 0 if cut is successful
 - 1 if invalid filename is given
