@@ -1,7 +1,15 @@
 # cut-video
 ## Description
 Simple program that cuts a video file into a smaller segment.
-## Download
+## Usage
+Run 
 ```bash
-$ sudo curl -L -o /usr/local/bin/
+$ cut-video
 ```
+for help.
+## Download
+Run
+```bash
+$ sudo curl -L https://raw.githubusercontent.com/andis854/cut-video/main/cut-video -o /usr/local/bin/
+```
+to download.
