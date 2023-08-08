@@ -58,28 +58,30 @@ fi
 
 
 
-# Check existing files
-for i in $@; do
-    [[ -e $i ]] && FILENAMES="$FILENAMES $i"
-done
-[[ $FILENAMES =~ ^\ *$ ]] && usage && exit 1
 
 
 
 
-
-
-
-
-
-# Define necessary variables
+# Define necessary variables and arrays
 VIDEO_PLAYER=$( < $HOME/.config/cut-video/config.conf )
 [[ $VIDEO_PLAYER =~ vlc$ ]] && QUIT_PAR=vlc://quit # This is a vlc option only to quit the video automatically
 VIDEO_FORMAT=$(echo $1 | grep -oE '\.[^.]+$')
-DURATION=$(ffprobe -i "$1" -show_format 2>/dev/null | awk -F "=" '/duration/ { print $2 }')
 TEMP_FILE="/tmp/cut-video-temp-file$VIDEO_FORMAT"
+FILENAMES=()
 underline=`tput smul`
 nounderline=`tput rmul`
+
+
+
+
+
+# Check existing files
+for i in "${@}"; do
+    [[ -e $i ]] && FILENAMES+=("$i")
+done
+# If no such files exist, print usage and exit 
+[[ $FILENAMES =~ ^\ *$ ]] && usage && exit 1
+
 
 
 
@@ -89,7 +91,10 @@ nounderline=`tput rmul`
 #Iterate over valid files
 
 COUNTER=0
-for i in $FILENAMES; do
+for i in "${FILENAMES[@]}"; do
+    echo $i
+    DURATION=$(ffprobe -i "$i" -show_format 2>/dev/null | awk -F "=" '/duration/ { print $2 }')
+    echo $DURATION
     COUNTER=$(($COUNTER+1))
     SATISFIED=n # Redo cut if n
     while [[ $SATISFIED == n ]]; do
@@ -174,9 +179,16 @@ while [[ -e $OUTPUT_FILE && ! ( $OVERWRITE == y || $OVERWRITE == a ) ]]; do
     fi
 done
 
+for ((i=1;i<=$COUNTER;i++)); do
+    TEMP_FILES="$TEMP_FILE$i "
+done
 
-[[ $OVERWRITE == y ]] && cat $TEMP_FILE > "$OUTPUT_FILE" && echo -e "\n$OUTPUT_FILE overwritten" && exit 0
-[[ ! $OVERWRITE == a ]] && cat $TEMP_FILE > "$OUTPUT_FILE" && echo -e "\n$OUTPUT_FILE created" && exit 0
+
+
+[[ $OVERWRITE == y ]] && ffmpeg concat -i $TEMP_FILES -c copy $OUTPUT_FILE && echo -e "\n$OUTPUT_FILE overwritten" && exit 0
+[[ ! $OVERWRITE == a ]] && ffmpeg concat -i $TEMP_FILES -c copy $OUTPUT_FILE && echo -e "\n$OUTPUT_FILE created" && exit 0
+# [[ $OVERWRITE == y ]] && cat $TEMP_FILE > "$OUTPUT_FILE" && echo -e "\n$OUTPUT_FILE overwritten" && exit 0
+# [[ ! $OVERWRITE == a ]] && cat $TEMP_FILE > "$OUTPUT_FILE" && echo -e "\n$OUTPUT_FILE created" && exit 0
 [[ $OVERWRITE == a ]] && echoerr -e "\nAborted" && exit 2
 
 
