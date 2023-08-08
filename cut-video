@@ -1,6 +1,16 @@
 #!/usr/bin/bash
 
 
+
+#ToDo
+#
+# Same file format
+# combine all files
+
+
+
+
+# Print usage 
 usage(){
 echo 'Usage: cut-video FILENAME(s)
 
@@ -28,12 +38,15 @@ Dependencies:
 
 
 
-
+# Display error messages
 echoerr () { echo "$@" 1>&2; }
-[[ ! -e $1 ]] && usage && exit 1
 
 
 
+
+
+
+# Check that configuration file exists
 if [[ ! -e $HOME/.config/cut-video/config.conf || -z $( < $HOME/.config/cut-video/config.conf ) ]]; then
     mkdir -p $HOME/.config/cut-video
     read -p "Please choose a video player: " VIDEO_PLAYER
@@ -42,6 +55,24 @@ fi
 
 
 
+
+
+
+# Check existing files
+for i in $@; do
+    [[ -e $i ]] && FILENAMES="$FILENAMES $i"
+done
+[[ $FILENAMES =~ ^\ *$ ]] && usage && exit 1
+
+
+
+
+
+
+
+
+
+# Define necessary variables
 VIDEO_PLAYER=$( < $HOME/.config/cut-video/config.conf )
 [[ $VIDEO_PLAYER =~ vlc$ ]] && QUIT_PAR=vlc://quit # This is a vlc option only to quit the video automatically
 VIDEO_FORMAT=$(echo $1 | grep -oE '\.[^.]+$')
@@ -51,66 +82,80 @@ underline=`tput smul`
 nounderline=`tput rmul`
 
 
-SATISFIED=n
-while [[ $SATISFIED == n ]]; do
-    $VIDEO_PLAYER "$1" $QUIT_PAR 2>/dev/null &
-    VLC_PID=$!
-    echo -ne "\nStart at seconds [0]: "
-    read START_VIDEO
-    [[ ! $START_VIDEO =~ ^([0-9]*\.[0-9]+|[0-9]+\.?[0-9]*)$ ]] && START_VIDEO=0
-    
-    read -p "End at seconds [$DURATION]: " END_VIDEO
-    [[ ! $END_VIDEO =~ ^([0-9]*\.[0-9]+|[0-9]+\.?[0-9]*)$ || $(python -c "print($START_VIDEO < $END_VIDEO)" ) != "True" ]] && END_VIDEO=$DURATION
+
+
+
+
+#Iterate over valid files
+
+COUNTER=0
+for i in $FILENAMES; do
+    COUNTER=$(($COUNTER+1))
+    SATISFIED=n # Redo cut if n
+    while [[ $SATISFIED == n ]]; do
+        $VIDEO_PLAYER "$i" $QUIT_PAR 2>/dev/null &
+        VLC_PID=$!
+        echo -ne "\nStart at seconds [0]: "
+        read START_VIDEO
+        [[ ! $START_VIDEO =~ ^([0-9]*\.[0-9]+|[0-9]+\.?[0-9]*)$ ]] && START_VIDEO=0
         
-    
-    kill $VLC_PID 2>/dev/null
-    
-    
-    
-    echo -e "${underline}\nChange start of video${nounderline}"
-    while [[ $CHANGE_TIME != "r" ]]; do
-        /usr/bin/ffmpeg -ss "$START_VIDEO" -to $(python -c "print($START_VIDEO+2)") -i "$1" -c copy -y $TEMP_FILE 2>/dev/null && $VIDEO_PLAYER $TEMP_FILE $QUIT_PAR 2>/dev/null &
-        echo -ne "Start time is $START_VIDEO\nEnter new start time [s] or change it [\u00b1s]. Type 'r' when ready: "
-        read CHANGE_TIME
-        if [[ $CHANGE_TIME =~ ^([0-9]*\.[0-9]+|[0-9]+\.?[0-9]*)$ ]]; then
-            START_VIDEO=$CHANGE_TIME
-        elif [[ $CHANGE_TIME =~ ^[+-]([0-9]*\.[0-9]+|[0-9]+\.?[0-9]*)$ ]]; then
-            START_VIDEO=$(python -c "print($START_VIDEO$CHANGE_TIME)")
-        fi
-    done    
-    
-    CHANGE_TIME=""
-    
-    echo -e "${underline}\nChange end of video${nounderline}"
-    while [[ $CHANGE_TIME != "r" ]]; do
-
-        /usr/bin/ffmpeg -ss $(python -c "print($END_VIDEO-2)") -to "$END_VIDEO" -i "$1" -c copy -y $TEMP_FILE 2>/dev/null && $VIDEO_PLAYER $TEMP_FILE $QUIT_PAR 2>/dev/null &
+        read -p "End at seconds [$DURATION]: " END_VIDEO
+        [[ ! $END_VIDEO =~ ^([0-9]*\.[0-9]+|[0-9]+\.?[0-9]*)$ || $(python -c "print($START_VIDEO < $END_VIDEO)" ) != "True" ]] && END_VIDEO=$DURATION
+            
         
-
-        echo -ne "End time is $END_VIDEO\nEnter new end time [s] or change it [\u00b1s]. Type 'r' when ready: "
-        read CHANGE_TIME
-
-
-
-        if [[ $CHANGE_TIME =~ ^([0-9]*\.[0-9]+|[0-9]+\.?[0-9]*)$ && $(python -c "print($START_VIDEO < $CHANGE_TIME )" ) == "True" ]]; then
-            END_VIDEO=$CHANGE_TIME
-        elif [[ $CHANGE_TIME =~ ^[+-]([0-9]*\.[0-9]+|[0-9]+\.?[0-9]*)$ && $(python -c "print($START_VIDEO < $END_VIDEO$CHANGE_TIME )" ) == "True" ]]; then
-            END_VIDEO=$(python -c "print($END_VIDEO$CHANGE_TIME)")
-        elif [[ $(python -c "print($START_VIDEO < $END_VIDEO)" ) != "True" ]]; then
-            END_VIDEO=$DURATION
-        fi
-
-
-    done    
+        kill $VLC_PID 2>/dev/null
+        
+        
+        
+        echo -e "${underline}\nChange start of video${nounderline}"
+        while [[ $CHANGE_TIME != "r" ]]; do
+            /usr/bin/ffmpeg -ss "$START_VIDEO" -to $(python -c "print($START_VIDEO+2)") -i "$i" -c copy -y $TEMP_FILE$COUNTER 2>/dev/null && $VIDEO_PLAYER $TEMP_FILE$COUNTER $QUIT_PAR 2>/dev/null &
+            echo -ne "Start time is $START_VIDEO\nEnter new start time [s] or change it [\u00b1s]. Type 'r' when ready: "
+            read CHANGE_TIME
+            if [[ $CHANGE_TIME =~ ^([0-9]*\.[0-9]+|[0-9]+\.?[0-9]*)$ ]]; then
+                START_VIDEO=$CHANGE_TIME
+            elif [[ $CHANGE_TIME =~ ^[+-]([0-9]*\.[0-9]+|[0-9]+\.?[0-9]*)$ ]]; then
+                START_VIDEO=$(python -c "print($START_VIDEO$CHANGE_TIME)")
+            fi
+        done    
+        
+        CHANGE_TIME=""
+        
+        echo -e "${underline}\nChange end of video${nounderline}"
+        while [[ $CHANGE_TIME != "r" ]]; do
+    
+            /usr/bin/ffmpeg -ss $(python -c "print($END_VIDEO-2)") -to "$END_VIDEO" -i "$i" -c copy -y $TEMP_FILE$COUNTER 2>/dev/null && $VIDEO_PLAYER $TEMP_FILE$COUNTER $QUIT_PAR 2>/dev/null &
+            
+    
+            echo -ne "End time is $END_VIDEO\nEnter new end time [s] or change it [\u00b1s]. Type 'r' when ready: "
+            read CHANGE_TIME
     
     
-    /usr/bin/ffmpeg -ss "$START_VIDEO" -to "$END_VIDEO" -i "$1" -c copy -y $TEMP_FILE 2>/dev/null && $VIDEO_PLAYER -R $TEMP_FILE $QUIT_PAR 2>/dev/null &
-
-    echo -ne "\n${underline}Your video is ready${nounderline}\nAre you satisfied with the video cut? [Y/n] "
-    read SATISFIED
-    CHANGE_TIME=""
+    
+            if [[ $CHANGE_TIME =~ ^([0-9]*\.[0-9]+|[0-9]+\.?[0-9]*)$ && $(python -c "print($START_VIDEO < $CHANGE_TIME )" ) == "True" ]]; then
+                END_VIDEO=$CHANGE_TIME
+            elif [[ $CHANGE_TIME =~ ^[+-]([0-9]*\.[0-9]+|[0-9]+\.?[0-9]*)$ && $(python -c "print($START_VIDEO < $END_VIDEO$CHANGE_TIME )" ) == "True" ]]; then
+                END_VIDEO=$(python -c "print($END_VIDEO$CHANGE_TIME)")
+            elif [[ $(python -c "print($START_VIDEO < $END_VIDEO)" ) != "True" ]]; then
+                END_VIDEO=$DURATION
+            fi
+    
+    
+        done    
+        
+        
+        /usr/bin/ffmpeg -ss "$START_VIDEO" -to "$END_VIDEO" -i "$i" -c copy -y $TEMP_FILE$COUNTER 2>/dev/null && $VIDEO_PLAYER -R $TEMP_FILE$COUNTER $QUIT_PAR 2>/dev/null &
+    
+        echo -ne "\n${underline}Your video is ready${nounderline}\nAre you satisfied with the video cut? [Y/n] "
+        read SATISFIED
+        CHANGE_TIME=""
+    done
 done
 
+
+
+
+# Suggested out filename
 SUGG_FILENAME=$(echo $1 | sed -E 's/\.[^.]*$//')\ -\ cut-video$VIDEO_FORMAT 
 
 echo -ne "\nOutput file [$SUGG_FILENAME]: "
