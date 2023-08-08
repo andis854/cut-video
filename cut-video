@@ -3,9 +3,8 @@
 
 
 #ToDo
-#
+# Error -03
 # Same file format
-# combine all files
 
 
 
@@ -65,13 +64,12 @@ fi
 # Define necessary variables and arrays
 VIDEO_PLAYER=$( < $HOME/.config/cut-video/config.conf )
 [[ $VIDEO_PLAYER =~ vlc$ ]] && QUIT_PAR=vlc://quit # This is a vlc option only to quit the video automatically
-VIDEO_FORMAT=$(echo $1 | grep -oE '\.[^.]+$')
-TEMP_FILE="/tmp/cut-video-temp-file$VIDEO_FORMAT"
+VIDEO_FORMAT=.ts # $(echo $1 | grep -oE '\.[^.]+$')
+TEMP_FILE="/tmp/cut-video-temp-file"
 FILENAMES=()
 underline=`tput smul`
 nounderline=`tput rmul`
-
-
+REGEX='([0-9]+\.[0-9]*|[1-9][0-9]*|[0-9]*\.[0-9]+)'
 
 
 
@@ -102,24 +100,24 @@ for i in "${FILENAMES[@]}"; do
         VLC_PID=$!
         echo -ne "\nStart at seconds [0]: "
         read START_VIDEO
-        [[ ! $START_VIDEO =~ ^([0-9]*\.[0-9]+|[0-9]+\.?[0-9]*)$ ]] && START_VIDEO=0
+        [[ ! $START_VIDEO =~ ^$REGEX$ ]] && START_VIDEO=0
         
         read -p "End at seconds [$DURATION]: " END_VIDEO
-        [[ ! $END_VIDEO =~ ^([0-9]*\.[0-9]+|[0-9]+\.?[0-9]*)$ || $(python -c "print($START_VIDEO < $END_VIDEO)" ) != "True" ]] && END_VIDEO=$DURATION
+        [[ ! $END_VIDEO =~ ^$REGEX$ || $(python -c "print($START_VIDEO < $END_VIDEO)" ) != "True" ]] && END_VIDEO=$DURATION
             
         
         kill $VLC_PID 2>/dev/null
         
-        
+        echo $TEMP_FILE$COUNTER$VIDEO_FORMAT
         
         echo -e "${underline}\nChange start of video${nounderline}"
         while [[ $CHANGE_TIME != "r" ]]; do
-            /usr/bin/ffmpeg -ss "$START_VIDEO" -to $(python -c "print($START_VIDEO+2)") -i "$i" -c copy -y $TEMP_FILE$COUNTER 2>/dev/null && $VIDEO_PLAYER $TEMP_FILE$COUNTER $QUIT_PAR 2>/dev/null &
+            /usr/bin/ffmpeg -ss "$START_VIDEO" -to $(python -c "print($START_VIDEO+2)") -i "$i" -c copy -y $TEMP_FILE$COUNTER$VIDEO_FORMAT 2>/dev/null && $VIDEO_PLAYER $TEMP_FILE$COUNTER$VIDEO_FORMAT $QUIT_PAR 2>/dev/null &
             echo -ne "Start time is $START_VIDEO\nEnter new start time [s] or change it [\u00b1s]. Type 'r' when ready: "
             read CHANGE_TIME
-            if [[ $CHANGE_TIME =~ ^([0-9]*\.[0-9]+|[0-9]+\.?[0-9]*)$ ]]; then
+            if [[ $CHANGE_TIME =~ ^$REGEX$ ]]; then
                 START_VIDEO=$CHANGE_TIME
-            elif [[ $CHANGE_TIME =~ ^[+-]([0-9]*\.[0-9]+|[0-9]+\.?[0-9]*)$ ]]; then
+            elif [[ $CHANGE_TIME =~ ^[+-]$REGEX$ ]]; then
                 START_VIDEO=$(python -c "print($START_VIDEO$CHANGE_TIME)")
             fi
         done    
@@ -129,7 +127,7 @@ for i in "${FILENAMES[@]}"; do
         echo -e "${underline}\nChange end of video${nounderline}"
         while [[ $CHANGE_TIME != "r" ]]; do
     
-            /usr/bin/ffmpeg -ss $(python -c "print($END_VIDEO-2)") -to "$END_VIDEO" -i "$i" -c copy -y $TEMP_FILE$COUNTER 2>/dev/null && $VIDEO_PLAYER $TEMP_FILE$COUNTER $QUIT_PAR 2>/dev/null &
+            /usr/bin/ffmpeg -ss $(python -c "print($END_VIDEO-2)") -to "$END_VIDEO" -i "$i" -c copy -y $TEMP_FILE$COUNTER$VIDEO_FORMAT 2>/dev/null && $VIDEO_PLAYER $TEMP_FILE$COUNTER$VIDEO_FORMAT $QUIT_PAR 2>/dev/null &
             
     
             echo -ne "End time is $END_VIDEO\nEnter new end time [s] or change it [\u00b1s]. Type 'r' when ready: "
@@ -137,9 +135,9 @@ for i in "${FILENAMES[@]}"; do
     
     
     
-            if [[ $CHANGE_TIME =~ ^([0-9]*\.[0-9]+|[0-9]+\.?[0-9]*)$ && $(python -c "print($START_VIDEO < $CHANGE_TIME )" ) == "True" ]]; then
+            if [[ $CHANGE_TIME =~ ^$REGEX$ && $(python -c "print($START_VIDEO < $CHANGE_TIME )" ) == "True" ]]; then
                 END_VIDEO=$CHANGE_TIME
-            elif [[ $CHANGE_TIME =~ ^[+-]([0-9]*\.[0-9]+|[0-9]+\.?[0-9]*)$ && $(python -c "print($START_VIDEO < $END_VIDEO$CHANGE_TIME )" ) == "True" ]]; then
+            elif [[ $CHANGE_TIME =~ ^[+-]$REGEX$ && $(python -c "print($START_VIDEO < $END_VIDEO$CHANGE_TIME )" ) == "True" ]]; then
                 END_VIDEO=$(python -c "print($END_VIDEO$CHANGE_TIME)")
             elif [[ $(python -c "print($START_VIDEO < $END_VIDEO)" ) != "True" ]]; then
                 END_VIDEO=$DURATION
@@ -149,10 +147,13 @@ for i in "${FILENAMES[@]}"; do
         done    
         
         
-        /usr/bin/ffmpeg -ss "$START_VIDEO" -to "$END_VIDEO" -i "$i" -c copy -y $TEMP_FILE$COUNTER 2>/dev/null && $VIDEO_PLAYER -R $TEMP_FILE$COUNTER $QUIT_PAR 2>/dev/null &
-    
-        echo -ne "\n${underline}Your video is ready${nounderline}\nAre you satisfied with the video cut? [Y/n] "
+        /usr/bin/ffmpeg -ss "$START_VIDEO" -to "$END_VIDEO" -i "$i" -c copy -y $TEMP_FILE$COUNTER$VIDEO_FORMAT 2>/dev/null
+        $VIDEO_PLAYER -R $TEMP_FILE$COUNTER$VIDEO_FORMAT $QUIT_PAR 2>/dev/null &
+        VLC_PID=$!
+        echo -ne "\n${underline}Your cut of '$i' is ready${nounderline}\nAre you satisfied with the video cut? [Y/n] "
+        
         read SATISFIED
+        kill $VLC_PID 2>/dev/null
         CHANGE_TIME=""
     done
 done
@@ -170,7 +171,7 @@ read OUTPUT_FILE
 
 [[ -e $OUTPUT_FILE ]] && echo ""
 while [[ -e $OUTPUT_FILE && ! ( $OVERWRITE == y || $OVERWRITE == a ) ]]; do
-    echo -ne "File already exists. Overwrite? [(y)es/(a)bort/(c)hange] " && read OVERWRITE
+    echo -ne "File '$OUTPUT_FILE' already exists. Overwrite? [(y)es/(a)bort/(c)hange] " && read OVERWRITE
     if [[ $OVERWRITE == c ]]; then
         echo -ne "\nOutput file [$SUGG_FILENAME]: "
         read OUTPUT_FILE
@@ -179,14 +180,23 @@ while [[ -e $OUTPUT_FILE && ! ( $OVERWRITE == y || $OVERWRITE == a ) ]]; do
     fi
 done
 
+rm "$TEMP_FILE-list.txt"
 for ((i=1;i<=$COUNTER;i++)); do
-    TEMP_FILES="$TEMP_FILE$i "
+    echo "file '$TEMP_FILE$i$VIDEO_FORMAT'" >> "$TEMP_FILE-list.txt"
 done
 
 
 
-[[ $OVERWRITE == y ]] && ffmpeg concat -i $TEMP_FILES -c copy $OUTPUT_FILE && echo -e "\n$OUTPUT_FILE overwritten" && exit 0
-[[ ! $OVERWRITE == a ]] && ffmpeg concat -i $TEMP_FILES -c copy $OUTPUT_FILE && echo -e "\n$OUTPUT_FILE created" && exit 0
+
+# TEMP_FILES=()
+# for ((i=1;i<=$COUNTER;i++)); do
+#     $TEMP_FILE+=($TEMP_FILE$i$VIDEO_FORMAT)
+# done
+# 
+# echo ${TEMP_FILES[@]}
+
+[[ $OVERWRITE == y ]] && rm "$OUTPUT_FILE" && ffmpeg -f concat -safe 0 -i "$TEMP_FILE-list.txt" -c copy "$OUTPUT_FILE" 2>/dev/null && echo -e "\n'$OUTPUT_FILE' overwritten" && exit 0
+[[ ! $OVERWRITE == a ]] && ffmpeg -f concat -safe 0 -i "$TEMP_FILE-list.txt" -c copy "$OUTPUT_FILE" 2>/dev/null && echo -e "\n'$OUTPUT_FILE' created" && exit 0
 # [[ $OVERWRITE == y ]] && cat $TEMP_FILE > "$OUTPUT_FILE" && echo -e "\n$OUTPUT_FILE overwritten" && exit 0
 # [[ ! $OVERWRITE == a ]] && cat $TEMP_FILE > "$OUTPUT_FILE" && echo -e "\n$OUTPUT_FILE created" && exit 0
 [[ $OVERWRITE == a ]] && echoerr -e "\nAborted" && exit 2
