@@ -104,10 +104,14 @@ while [[ $SATISFIED == n ]]; do
     done    
     
     
-    /usr/bin/ffmpeg -ss "$START_VIDEO" -to "$END_VIDEO" -i "$1" -c copy -y $TEMP_FILE 2>/dev/null && $VIDEO_PLAYER -R $TEMP_FILE $QUIT_PAR 2>/dev/null &
+    /usr/bin/ffmpeg -ss "$START_VIDEO" -to "$END_VIDEO" -i "$1" -c copy -y $TEMP_FILE 2>/dev/null
+    $VIDEO_PLAYER -R $TEMP_FILE $QUIT_PAR 2>/dev/null &
+    VLC_PID=$!
+
 
     echo -ne "\n${underline}Your video is ready${nounderline}\nAre you satisfied with the video cut? [Y/n] "
     read SATISFIED
+    kill VLC_PID 2>/dev/null
     CHANGE_TIME=""
 done
 
